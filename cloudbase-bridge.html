@@ -2,15 +2,20 @@
 <html lang="zh">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f3d34">
 <title>欧洲行李清单云同步桥接</title>
 <script src="https://static.cloudbase.net/cloudbase-js-sdk/3.3.10/cloudbase.full.js"></script>
 <style>
-body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;margin:0;padding:24px;color:#222;line-height:1.6}
-.box{max-width:420px;margin:auto}
-h1{font-size:18px;margin:0 0 10px}
-p{font-size:14px;color:#555;margin:0}
+*{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:calc(env(safe-area-inset-top) + 24px) 18px 24px;background:#f2f2f7;color:#1c1c1e;line-height:1.55;-webkit-font-smoothing:antialiased}
+.box{max-width:420px;margin:auto;background:#fff;border-radius:20px;padding:22px;box-shadow:0 10px 30px rgba(24,45,38,.08)}
+.box:before{content:'↻';display:grid;place-items:center;width:42px;height:42px;margin-bottom:18px;border-radius:13px;background:#e5f3ee;color:#0f6b57;font-size:24px;font-weight:700}
+h1{font-size:20px;letter-spacing:-.02em;margin:0 0 8px}
+p{font-size:14px;color:#6e6e73;margin:0}
+@media(prefers-color-scheme:dark){body{background:#000;color:#f2f2f7}.box{background:#1c1c1e}.box:before{background:#173c34;color:#50c9a8}p{color:#aeaeb2}}
 </style>
+
 </head>
 <body>
 <div class="box">
