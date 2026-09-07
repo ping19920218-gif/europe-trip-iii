@@ -27,8 +27,6 @@ const CFG = {
   env: 'baby-tracker-d6g6gqokjc671997c',
   region: 'ap-shanghai',
   fn: 'bt',
-  familyId: 'fam-huti',
-  familyCode: 'huti'
 };
 function isAllowedOrigin(origin){
   return origin === 'https://ping19920218-gif.github.io'
@@ -52,10 +50,13 @@ async function ensureCloud(){
   })().catch(e=>{ readyPromise=null; throw e; });
   return readyPromise;
 }
-async function cloudCall(op, extra){
+async function cloudCall(op, extra, credentials){
   if(op !== 'getSetting' && op !== 'setSetting') throw new Error('Unsupported op: '+op);
+  if(!extra || extra.key !== 'packingEuropeTripIII2026Json') throw new Error('Unsupported setting');
+  if(!credentials || typeof credentials.familyId !== 'string' || !credentials.familyId || typeof credentials.familyCode !== 'string' || !credentials.familyCode) throw new Error('需要家庭同步凭据');
   await ensureCloud();
-  const data = {...(extra||{}), op, familyId:CFG.familyId, familyCode:CFG.familyCode};
+  const data = {op, key:extra.key, familyId:credentials.familyId, familyCode:credentials.familyCode};
+  if(op === 'setSetting') data.value = extra.value;
   const res = await app.callFunction({name:CFG.fn, data});
   const r = res && res.result;
   if(!r) throw new Error(`云函数无响应（${op}）`);
@@ -70,6 +71,7 @@ function notifyReady(source, origin){
 }
 window.addEventListener('message', async (event)=>{
   if(!isAllowedOrigin(event.origin)) return;
+  if(event.source !== window.opener && (window.parent === window || event.source !== window.parent)) return;
   const msg = event.data || {};
   if(msg && msg.type === 'pack-cloud-bridge-ping'){
     notifyReady(event.source, event.origin);
@@ -77,7 +79,7 @@ window.addEventListener('message', async (event)=>{
   }
   if(!msg || msg.type !== 'pack-cloud-call' || !msg.id) return;
   try{
-    const data = await cloudCall(msg.op, msg.extra || {});
+    const data = await cloudCall(msg.op, msg.extra || {}, msg.credentials);
     reply(event.source, event.origin, {type:'pack-cloud-response', id:msg.id, ok:true, data});
   }catch(e){
     reply(event.source, event.origin, {
