@@ -365,7 +365,7 @@ const PACK_APP_URL = location.href.split('?')[0];
 const PACK_BRIDGE_ORIGIN = (()=>{try{return new URL(PACK_BRIDGE_URL).origin;}catch(e){return '';}})();
 const PACK_PENDING_KEY = 'europe3-pack-sync-pending';
 const PACK_DEVICE_KEY = 'europe3-pack-device';
-const PACK_SYNC = {app:null, ready:false, starting:null, bridge:null, bridgeWindow:null, bridgeReady:false, bridgeStarting:null, bridgeSeq:0, bridgePreferred:false, applying:false, flushing:false, timer:null, status:'正在连接云同步…', level:''};
+const PACK_SYNC = {app:null, ready:false, starting:null, bridge:null, bridgeWindow:null, bridgeReady:false, bridgeStarting:null, bridgeSeq:0, bridgePreferred:false, applying:false, flushing:false, timer:null, status:'首次使用请点“家庭同步”完成连接', level:''};
 
 function packDeviceId(){
   try{
@@ -517,10 +517,12 @@ function packBridgeTarget(){
 function preparePackBridgeInteractive(){
   if(!packCanUseBridge() || PACK_SYNC.bridgeReady) return;
   if(PACK_SYNC.bridgeWindow && !PACK_SYNC.bridgeWindow.closed){
+    setPackSyncStatus('请在弹窗中点“确定访问”，每台设备首次一次','pending');
     try{ PACK_SYNC.bridgeWindow.focus(); }catch(e){}
     return;
   }
   try{
+    setPackSyncStatus('请在弹窗中点“确定访问”，每台设备首次一次','pending');
     PACK_SYNC.bridgeWindow=window.open(
       PACK_BRIDGE_URL+'?v=1&mode=popup&ts='+Date.now(),
       'europe3PackCloudBridge',
@@ -533,7 +535,7 @@ function preparePackBridgeInteractive(){
 }
 function packSyncErrorText(e, fallback){
   const msg=String((e&&e.message)||e||'');
-  if(msg.includes('云同步桥接超时') || msg.includes('云同步授权页') || msg.includes('弹窗')) return '先打开云同步授权页，再点同步';
+  if(msg.includes('云同步桥接超时') || msg.includes('云同步授权页') || msg.includes('弹窗')) return '再点“家庭同步”，并在弹窗中点“确定访问”';
   return fallback;
 }
 async function ensurePackCloud(){
@@ -923,7 +925,7 @@ async function replacePackCloudWithLocal(manual){
 async function syncPackCloudNow(manual){
   if(!STATE.packing||!STATE.packing.length) return;
   if(packCanUseBridge()&&!manual&&!PACK_SYNC.bridgeReady){
-    setPackSyncStatus('点云同步连接夫妻共享清单','pending');
+    setPackSyncStatus('点“家庭同步”，在弹窗中点“确定访问”（首次一次）','pending');
     return;
   }
   if(manual) setPackSyncStatus('正在同步…','pending');
@@ -1376,7 +1378,7 @@ function renderTodos(){
   });
   h+='</div>';
   if(STATE.packing&&STATE.packing.length){
-    h+='<div class="sec-title pack-title"><span>行李</span><span class="pack-actions"><button class="pack-sync-btn" id="pack-sync-now" type="button" title="同步待办和行李清单" aria-label="同步待办和行李清单">↻ 云同步</button><button class="pack-sync-btn" id="pack-push-local" type="button" title="以本机清单覆盖云端" aria-label="以本机清单覆盖云端">↑ 本机为准</button><button class="pack-restore" id="pack-restore" type="button" title="恢复已删除行李项" aria-label="恢复已删除行李项">↺ <span id="pack-deleted-count"></span></button></span></div><div class="pack-sync-status" id="pack-sync-status"></div>';
+    h+='<div class="sec-title pack-title"><span>行李</span><span class="pack-actions"><button class="pack-sync-btn" id="pack-sync-now" type="button" title="家庭同步待办和行李清单；每台设备首次会打开确认页" aria-label="家庭同步待办和行李清单">↻ 家庭同步</button><button class="pack-sync-btn" id="pack-push-local" type="button" title="以本机清单覆盖云端" aria-label="以本机清单覆盖云端">↑ 本机为准</button><button class="pack-restore" id="pack-restore" type="button" title="恢复已删除行李项" aria-label="恢复已删除行李项">↺ <span id="pack-deleted-count"></span></button></span></div><div class="pack-sync-status" id="pack-sync-status"></div>';
     STATE.packing.forEach((c,ci)=>{
       let rows='';
       (c.items||[]).forEach((it)=>{
