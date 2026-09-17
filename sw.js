@@ -1,9 +1,10 @@
-const CACHE = 'europe-trip-iii-pwa-v42-20260916';
+const CACHE = 'europe-trip-iii-pwa-v43-20260917';
 const ASSETS = ['./', './index.html', './cloudbase-bridge.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const APP_SHELL = new URL('./index.html', self.registration.scope).href;
 const SCOPE_ROOT = self.registration.scope;
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // A new release must not seed its offline cache with fresh-but-old HTTP responses.
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS.map(url => new Request(url, {cache: 'reload'})))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k.startsWith('europe-trip-iii-pwa-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
