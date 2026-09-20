@@ -535,7 +535,21 @@ nav{background:rgba(249,249,251,.92);box-shadow:none}nav button{min-height:var(-
 }
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 </style>
-
+<style id="private-vault">.vault-entry{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:0 0 18px;padding:13px 15px;border:.5px solid var(--line);border-radius:var(--radius);background:var(--surface);color:var(--ink);text-align:left}
+.vault-entry strong{display:block;font-size:14px}.vault-entry small{display:block;margin-top:3px;color:var(--sub);font-size:12px}.vault-entry>span:last-child{color:var(--action);font-size:22px}
+.vault-link,.vault-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border:0;border-radius:10px;background:var(--surface-3);color:var(--action);font:inherit;font-size:13px;font-weight:650;text-decoration:none;cursor:pointer}
+.vault-link{margin:7px 7px 0 0}.vault-button.primary{background:var(--action);color:var(--surface)}.vault-button:disabled{opacity:.5;cursor:wait}
+.vault-hero h2{font-size:28px;margin:0 0 8px}.vault-hero p{font-size:13px;color:var(--sub);line-height:1.65;margin:6px 0 12px}
+.vault-tools{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0}.vault-summary{padding:13px 15px;margin-bottom:16px;border-radius:12px;background:var(--surface-3);font-size:13px;line-height:1.65}
+.vault-message{margin:12px 0;font-size:13px;line-height:1.6;overflow-wrap:anywhere}.vault-message.error{color:var(--warn)}
+.vault-section{margin:22px 0 10px;font-size:15px}.vault-card{scroll-margin-top:145px}.vault-card h3{font-size:16px;overflow-wrap:anywhere}.vault-meta{color:var(--sub);font-size:12px;margin:6px 0}
+.vault-note{padding:9px 11px;margin:10px 0;border-radius:9px;background:var(--warn-bg);color:var(--warn);font-size:12px;line-height:1.65}
+.vault-files{margin:10px 0;padding:0;list-style:none}.vault-file{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;border-top:.5px solid var(--line);padding:7px 0}.vault-file-open{min-width:0;min-height:44px;border:0;background:transparent;color:var(--action);text-align:left;font:inherit;cursor:pointer}.vault-file-open b{display:block;font-size:13px;overflow-wrap:anywhere}.vault-file-open small{display:block;font-size:11px;color:var(--sub);margin-top:3px}.vault-remove{min-width:44px;min-height:44px;border:0;border-radius:8px;background:transparent;color:var(--sub);font-size:12px}
+.vault-card details{margin-top:8px}.vault-card summary{color:var(--sub);font-size:12px}.vault-card label{font-size:12px;color:var(--sub)}.vault-card select{min-height:44px;max-width:100%;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
+.vault-dialog{position:fixed;inset:0;width:min(100%,1000px);height:100%;height:100dvh;max-width:100%;max-height:100dvh;margin:auto;padding:0;border:0;background:var(--bg);color:var(--ink)}.vault-dialog::backdrop{background:rgba(0,0,0,.65)}.vault-dialog[open]{display:flex;flex-direction:column}.vault-view-head{padding:calc(10px + env(safe-area-inset-top)) 14px 10px;border-bottom:1px solid var(--line);background:var(--surface);flex:none}.vault-view-title{display:flex;align-items:center;gap:10px}.vault-view-title h2{flex:1;min-width:0;font-size:15px;line-height:1.5;overflow-wrap:anywhere;margin:0}.vault-view-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.vault-view-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding-bottom:env(safe-area-inset-bottom)}.vault-view-body iframe{border:0;width:100%;height:100%;min-height:300px;background:white}.vault-view-body img{display:block;margin:auto;max-width:none;transform-origin:top left}.vault-view-body pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;font:14px/1.75 ui-monospace,monospace;margin:0}.vault-view-note{font-size:12px;line-height:1.6;color:var(--sub);margin:8px 0 0}.vault-view-placeholder{padding:24px;font-size:14px;line-height:1.8}
+.vault-button:focus-visible,.vault-file-open:focus-visible,.vault-remove:focus-visible,.vault-entry:focus-visible,.vault-link:focus-visible{outline:3px solid var(--action);outline-offset:3px}
+@media(max-width:360px){.vault-hero h2{font-size:25px}.vault-tools .vault-button{flex:1}.vault-view-head{padding-left:10px;padding-right:10px}}
+</style>
 </head>
 <body>
 <header>
@@ -562,6 +576,7 @@ nav{background:rgba(249,249,251,.92);box-shadow:none}nav button{min-height:var(-
   <div class="view" id="v-hotel"></div>
   <div class="view" id="v-food"></div>
   <div class="view" id="v-booking"></div>
+  <div class="view" id="v-vault"></div>
   <div class="view" id="v-fb"></div>
   <div class="view" id="v-todo"></div>
   <div class="view" id="v-sos"></div>
@@ -1389,7 +1404,7 @@ function chooseInitialDay(){
   return match ? match.n : 0;
 }
 
-const MORE_VIEWS=new Set(['weather','drive','hotel','food','fb','sos']);
+const MORE_VIEWS=new Set(['weather','drive','hotel','food','fb','sos','vault']);
 const PRIMARY_VIEWS=new Set(['itin','nav','booking','todo','more']);
 let currentView='itin';
 function routeFromLocation(){
@@ -1436,6 +1451,7 @@ function selectDay(day,push=true){
   if(!STATE.days.some(d=>d.n===day))return;
   if(push){rememberScroll();setRoute(currentView,day,false);}
   curDay=day;refreshDayControls();renderItin();renderNav();
+  if(currentView==='vault')renderVault();
   if(currentView==='itin'||currentView==='nav')window.scrollTo({top:0,behavior:'auto'});
   closeDaySheet();
 }
@@ -1446,14 +1462,16 @@ function activateView(view,options={}){
   currentView=view;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
   target.classList.add('on');
-  const tab=MORE_VIEWS.has(view)?'more':view;
+  const tab=view==='vault'?'booking':MORE_VIEWS.has(view)?'more':view;
   document.querySelectorAll('#nav button').forEach(btn=>btn.classList.toggle('on',btn.dataset.v===tab));
-  document.querySelector('.daynav')?.classList.toggle('hide',!['itin','nav'].includes(view));
+  document.querySelector('.daynav')?.classList.toggle('hide',!['itin','nav','vault'].includes(view));
+  if(view==='vault')renderVault();
   if(options.top!==false)window.scrollTo({top:0,behavior:'auto'});
 }
 
 function renderMore(){
   const items=[
+    ['vault','证','私人凭证夹','本机保存 · 导入与离线查看'],
     ['weather','天','天气与备选','每日天气和出发条件'],
     ['drive','车','欧洲驾车','道路、边境、ZTL与安全'],
     ['hotel','住','住宿','订单、停车与候选酒店'],
@@ -1492,8 +1510,10 @@ function init(){
   document.querySelectorAll('[data-close-sheet]').forEach(btn=>btn.onclick=closeDaySheet);
   document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&!$('day-sheet').hidden)closeDaySheet();});
   setRoute(currentView,curDay,true);activateView(currentView,{push:false,top:false});refreshDayControls();
+  void vaultRefresh();
   window.addEventListener('popstate',event=>{
     const route=event.state&&event.state.view?event.state:routeFromLocation();
+    if(vaultConsumeViewerPop(route))return;
     if(route.segment)navSegment=route.segment;
     curDay=STATE.days.some(d=>d.n===Number(route.day))?Number(route.day):chooseInitialDay();
     refreshDayControls();renderItin();renderNav();activateView(route.view||'itin',{push:false,top:false});
@@ -1643,6 +1663,7 @@ function renderItin(){
   const d = STATE.days.find(x=>x.n===curDay); if(!d)return;
   let h = `<section class="day-hero"><div class="day-eyebrow"><span>D${d.n} · ${esc(d.date.slice(5))} ${esc(d.dow)}</span>${d.phase?`<span class="phase">${esc(d.phase)}</span>`:''}</div><h2>${esc(d.title||d.oneliner||'当日行程')}</h2>${d.intro?`<p class="day-intro">${escRaw(d.intro)}</p>`:d.oneliner&&d.oneliner!==d.title?`<p>${esc(d.oneliner)}</p>`:''}${d.warning&&d.warning!=='无'&&d.warning!=='—'?`<div class="day-deadline"><b>${esc(d.deadline_label||(d.choices?.length?'当天重点':'时间提醒'))}</b><span>${fmtDesc(d.warning)}</span></div>`:''}</section>`;
   if(d.n===10) h += '<div class="split-note"><b>10/3 散团节点</b>｜从今天起为夫妻二人自驾；朋友段到 Cortina 结束。</div>';
+  h += vaultDayEntry(d.n);
   const priorDay=STATE.days.find(x=>x.n===d.n-1);
   if(priorDay?.hotel?.name) h+=`<div class="breakfast-today">${renderBreakfast(hotelBreakfast(priorDay.hotel.name),'今日早餐 · '+priorDay.hotel.name)}</div>`;
   if(d.route_note)h+=`<div class="split-note">${esc(d.route_note)}</div>`;
@@ -1680,6 +1701,8 @@ function renderItin(){
   }
   if(d.hotel&&d.hotel.name) h += `<div class="feed tonight-hotel"><h3>今晚住宿</h3><div>${esc(d.hotel.name)} <span class="status ${statusClass(d.hotel.status)}">${esc(d.hotel.status||'')}</span></div>${renderBreakfast(hotelBreakfast(d.hotel.name),'次日早餐',STATE.days.find(x=>x.n===d.n+1)?.date)}</div>`;
   $('v-itin').innerHTML = h;
+  document.querySelectorAll('#v-itin .item').forEach((node,index)=>{const item=d.items[index];if(item)node.querySelector('.ic')?.insertAdjacentHTML('beforeend',vaultMatchLinks(item.title,d.n));});
+  if(d.hotel?.name)document.querySelector('#v-itin .tonight-hotel')?.insertAdjacentHTML('beforeend',vaultMatchLinks(d.hotel.name,d.n,'酒店'));
   const route=$('route-disclosure');
   if(route)route.addEventListener('toggle',()=>{if(route.open){renderDayMap(d);setTimeout(()=>{try{window.LMAP?.invalidateSize();}catch(e){}},80);}else if(window.LMAP){try{window.LMAP.remove();}catch(e){}window.LMAP=null;}});
 }
@@ -1729,12 +1752,14 @@ function renderNav(){
   if((bsm.flights||[]).length)h+=`<details class="card"><summary><b>全部航班（${bsm.flights.length}）</b></summary><div style="margin-top:10px">${bsm.flights.map(f=>`<div class="card"><h3>${esc(f.leg)} · ${esc(f.flight)}</h3>${f.schedule?renderFlightTimes(f.schedule):`<div class="meta">${esc(f.route)}</div>`}<div class="meta">${esc(f.note||'')}</div></div>`).join('')}</div></details>`;
   h+='</section>';
   $('v-nav').innerHTML = h;
+  if(related.length)$('v-nav').querySelector('[data-panel="transit"]')?.insertAdjacentHTML('afterbegin',vaultLink('flights','航班行程单'));
   bindSegmented('v-nav',()=>navSegment,value=>{navSegment=value;});
 }
 
 function renderDrive(){
   const g = STATE.driving_europe; if(!g){ $('v-drive').innerHTML=''; return; }
   let h = `<div class="sec-title">${esc(g.title||'驾车提醒')}</div>`;
+  h += vaultLink('rental','Goldcar 租车凭证');
   if(g.intro) h += `<div class="warn" style="font-size:13px">${esc(g.intro)}</div>`;
   (g.sections||[]).forEach(sec=>{
     const warn = sec.level==='warn';
@@ -1797,6 +1822,7 @@ function renderHotels(){
     }
   });
   $('v-hotel').innerHTML=h;
+  document.querySelectorAll('#v-hotel > .card').forEach(node=>{const title=node.querySelector('h3');if(title)node.insertAdjacentHTML('beforeend',vaultMatchLinks(title.textContent,null,'酒店'));});
 }
 
 function renderFood(){
@@ -1808,6 +1834,7 @@ function renderFood(){
        `<div class="meta">${r.nav?`<b class="lb">导航：</b>${esc(r.nav)}<br>`:''}${fmtDesc(r.note||'')}</div>${r.nav?mapsInfo(r.nav)+mapsLink(r.nav,'打开地图','maplink'):''}</div>`;
   });
   $('v-food').innerHTML=h;
+  document.querySelectorAll('#v-food > .card').forEach(node=>{const title=node.querySelector('h3');if(title)node.insertAdjacentHTML('beforeend',vaultMatchLinks(title.textContent,null,'餐厅'));});
 }
 
 let bookingFilter='pending';
@@ -1835,6 +1862,8 @@ function renderBookings(filter){
     h+='</div></details>';
   }
   $('v-booking').innerHTML=h;
+  $('v-booking').insertAdjacentHTML('afterbegin','<button type="button" class="vault-entry" data-vault-day="current"><span><strong>私人凭证夹</strong><small>导入资料包 · 原件仅存本机</small></span><span aria-hidden="true">›</span></button>');
+  document.querySelectorAll('#v-booking > .card').forEach(node=>{const title=node.querySelector('h3');if(title)node.insertAdjacentHTML('beforeend',vaultMatchLinks(title.textContent));});
   document.querySelectorAll('#v-booking .filter').forEach(btn=>{btn.onclick=()=>renderBookings(btn.dataset.filter);});
 }
 
@@ -2065,7 +2094,256 @@ function renderSos(){
     h+='</div></div>';
   }
   $('v-sos').innerHTML=h;
+  $('v-sos').insertAdjacentHTML('afterbegin',vaultLink('insurance','旅行保险原件')+vaultLink('rental','租车原订单'));
 }
+
+// Files stay in this origin's IndexedDB. The family checklist sync never reads this database.
+const VAULT_CATALOGUE = [{"id": "flights", "title": "往返航班行程单", "kind": "航班", "days": [0, 1, 16, 17], "match": "LX139|LX1612|LH257|LH796|国际航班|返港航班"}, {"id": "rental", "title": "Goldcar 租车订单", "kind": "租车", "days": [1, 16], "match": "Goldcar|取车|还车"}, {"id": "insurance", "title": "全程旅行保险", "kind": "保险", "days": [], "note": "保险原件可从紧急联系页打开。"}, {"id": "casati", "title": "WorldHotel Casati 18", "kind": "酒店", "days": [1], "match": "Casati"}, {"id": "palace", "title": "Palace Hotel", "kind": "酒店", "days": [2], "match": "Palace", "note": "朋友预订；确认函待补。"}, {"id": "garni", "title": "Garni Gianmartin", "kind": "酒店", "days": [3], "match": "Gianmartin|Garni", "note": "归档原函仍为旧人数；行程已记录 2 成人、2 份早餐更正，需补更正确认。"}, {"id": "belvedere", "title": "Alpenresort Belvedere", "kind": "酒店", "days": [4], "match": "Belvedere"}, {"id": "chalet", "title": "Chalet Milé 2", "kind": "酒店", "days": [5, 6], "match": "Chalet|Milé", "note": "朋友预订；确认函待补。"}, {"id": "zorzi", "title": "Berghotel Zorzi", "kind": "酒店", "days": [7], "match": "Zorzi"}, {"id": "tofana-1", "title": "Hotel Tofana · 第 1 晚", "kind": "酒店", "days": [8], "match": "Tofana"}, {"id": "tofana-2", "title": "Hotel Tofana · 第 2 晚", "kind": "酒店", "days": [9], "match": "Tofana"}, {"id": "astoria-1", "title": "Astoria Bled · 第 1 晚", "kind": "酒店", "days": [10], "match": "Astoria"}, {"id": "astoria-2", "title": "Astoria Bled · 第 2 晚", "kind": "酒店", "days": [11], "match": "Astoria"}, {"id": "mangart", "title": "Hotel Mangart", "kind": "酒店", "days": [12], "match": "Mangart"}, {"id": "bernardin", "title": "Grand Hotel Bernardin", "kind": "酒店", "days": [13], "match": "Bernardin"}, {"id": "cubo", "title": "Hotel CUBO", "kind": "酒店", "days": [14], "match": "CUBO"}, {"id": "piazza", "title": "Hotel Piazza Vecchia", "kind": "酒店", "days": [15], "match": "Piazza"}, {"id": "tre-cime", "title": "三峰停车 · 激活与入场凭证", "kind": "停车", "days": [9], "match": "三峰|Tre Cime|Auronzo", "note": "现有两张图是停车管理记录与付款回执，尚待激活；不能当作正式入场二维码。"}, {"id": "zorzi-permit", "title": "Zorzi 上山通行许可", "kind": "通行", "days": [7], "note": "现有文件仅为办理流程与停车说明；正式许可待补。"}, {"id": "isola-bella", "title": "Isola Bella 门票", "kind": "门票", "days": [1], "match": "Isola Bella|博罗梅奥|贝拉岛"}, {"id": "cruise", "title": "加尔达湖船游", "kind": "体验", "days": [2], "match": "船游|包船|Cruise", "note": "朋友安排；正式确认凭证待补。"}, {"id": "pradel", "title": "Molveno / Pradel 缆车", "kind": "门票", "days": [4], "match": "Pradel|Molveno|莫尔韦诺"}, {"id": "seceda", "title": "Seceda 缆车", "kind": "门票", "days": [6], "match": "Seceda|刀锋"}, {"id": "vintgar", "title": "Vintgar 峡谷门票", "kind": "门票", "days": [11], "match": "Vintgar|文特加"}, {"id": "skocjan", "title": "Škocjan 洞穴门票", "kind": "门票", "days": [13], "match": "Škocjan|Skocjan|什科茨扬"}, {"id": "predjama", "title": "Predjama 城堡门票", "kind": "门票", "days": [15], "match": "Predjama|洞穴城堡"}, {"id": "dars", "title": "DARS 高速电子通行证", "kind": "通行", "days": [10], "match": "DARS|电子通行证|e-vignette"}, {"id": "airport-bus", "title": "去程机场接驳", "kind": "交通", "days": [0], "match": "机场巴士|跨境巴士|接驳"}, {"id": "esplanade", "title": "Esplanade 餐厅", "kind": "餐厅", "days": [2], "match": "Esplanade", "note": "行程已记录预订；确认凭证待补。"}, {"id": "tubladel", "title": "Tubladel 餐厅", "kind": "餐厅", "days": [5], "match": "Tubladel", "note": "行程已记录预订；确认凭证待补。"}, {"id": "tivoli", "title": "Tivoli 餐厅", "kind": "餐厅", "days": [8], "match": "Tivoli", "note": "行程已记录预订；确认凭证待补。"}];
+const VAULT_DB = 'europe3-vault-v1';
+const VAULT_LIMIT = {file:25*1024*1024,total:60*1024*1024,package:85*1024*1024,count:150};
+const VAULT_MARKS = {unreviewed:'尚未核对',checked:'已由我核对',missing:'仍需补齐',supporting:'仅补充资料'};
+let vaultDBPromise, vaultRows=[], vaultMarks={}, vaultScope='day', vaultLoaded=false;
+let vaultError='', vaultMessage='', vaultBusy=false, vaultReadSequence=0, vaultViewer=null;
+let vaultViewerPop=false;
+
+function vaultSlot(id){return VAULT_CATALOGUE.find(s=>s.id===id);}
+function vaultSize(n){return n===0?'0 KB':n<1024*1024?`${Math.max(1,Math.round(n/1024))} KB`:`${(n/1024/1024).toFixed(1)} MB`;}
+function vaultFiles(id){return vaultRows.filter(f=>f.slot===id).sort((a,b)=>(a.mime==='application/vnd.ms-outlook')-(b.mime==='application/vnd.ms-outlook')||String(b.updated).localeCompare(String(a.updated))||a.name.localeCompare(b.name));}
+function vaultLink(id,label='查看凭证'){return vaultSlot(id)?`<button type="button" class="vault-link" data-vault-slot="${escAttr(id)}">${escRaw(label)}</button>`:'';}
+function vaultMatchLinks(text,day,kind){
+  return VAULT_CATALOGUE.filter(s=>s.match&&(!kind||s.kind===kind)&&(day==null||s.days.includes(day))&&new RegExp(s.match,'i').test(text||''))
+    .map(s=>vaultLink(s.id,kind==='酒店'?`入住凭证${s.title.includes('第 ')?' · '+s.title.split(' · ')[1]:''}`:s.kind==='门票'?'门票凭证':`${s.kind}凭证`)).join('');
+}
+function vaultDayEntry(day){return `<button type="button" class="vault-entry" data-vault-day="${day}"><span><strong>当天凭证</strong><small>酒店、交通与门票 · 保存在本机</small></span><span aria-hidden="true">›</span></button>`;}
+
+function vaultDatabase(){
+  if(!('indexedDB' in window))return Promise.reject(new Error('此浏览器无法保存文件，请使用 Safari 或 Chrome 正常浏览模式。'));
+  if(!vaultDBPromise)vaultDBPromise=new Promise((resolve,reject)=>{
+    const request=indexedDB.open(VAULT_DB,1);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
+      db.createObjectStore('files',{keyPath:'id'});
+      db.createObjectStore('marks',{keyPath:'slot'});
+    };
+    request.onsuccess=()=>{const db=request.result;db.onversionchange=()=>{db.close();vaultDBPromise=null;};resolve(db);};
+    request.onerror=()=>{vaultDBPromise=null;reject(new Error('本机存储无法打开；请保留资料包后换用正常浏览模式。'));};
+    request.onblocked=()=>{vaultDBPromise=null;reject(new Error('请关闭此站点的其他窗口，再打开凭证夹。'));};
+  });
+  return vaultDBPromise;
+}
+async function vaultRead(){
+  const db=await vaultDatabase();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(['files','marks'],'readonly');
+    const files=tx.objectStore('files').getAll(),marks=tx.objectStore('marks').getAll();
+    tx.oncomplete=()=>resolve({files:files.result,marks:Object.fromEntries(marks.result.map(m=>[m.slot,m.value]))});
+    tx.onabort=tx.onerror=()=>reject(new Error('未能读取本机凭证，请重新打开页面。'));
+  });
+}
+function vaultStorageError(error){
+  return error?.name==='QuotaExceededError'?'手机可用空间不足，原有凭证已保留。请腾出空间再导入。':error?.message||'保存失败，原有凭证已保留，请重试。';
+}
+async function vaultRefresh(){
+  const sequence=++vaultReadSequence;
+  try{const data=await vaultRead();if(sequence!==vaultReadSequence)return;vaultRows=data.files;vaultMarks=data.marks;vaultLoaded=true;vaultError='';}
+  catch(error){vaultError=vaultStorageError(error);}
+  renderVault();
+}
+function renderVault(){
+  const root=$('v-vault');if(!root)return;
+  const shown=VAULT_CATALOGUE.filter(s=>vaultScope==='all'||s.days.includes(curDay)||s.days.length===0).sort((a,b)=>(a.days.length?Math.min(...a.days):99)-(b.days.length?Math.min(...b.days):99));
+  const slotsWithFiles=new Set(vaultRows.map(f=>f.slot));
+  const total=vaultRows.reduce((sum,f)=>sum+f.size,0);
+  let h=`<section class="vault-hero"><h2>私人凭证夹</h2><p>从手机「文件」选取资料包，每部手机各导入一次。文件仅存本机，不参与家庭同步。</p></section>`;
+  h+=`<div class="vault-tools"><button type="button" class="vault-button primary" data-vault-import ${vaultBusy?'disabled':''}>${vaultBusy?'正在校验…':'导入资料包'}</button><button type="button" class="vault-button" data-vault-export ${vaultBusy||!vaultRows.length?'disabled':''}>备份本机凭证</button></div>`;
+  h+=`<div class="vault-message${vaultError?' error':''}" role="status" aria-live="polite">${escRaw(vaultError||vaultMessage)}</div>`;
+  h+=`<div class="vault-summary">${vaultLoaded?`本机已保存 <b>${vaultRows.length}</b> 份文件 · ${slotsWithFiles.size} 项凭证 · ${vaultSize(total)}`:'正在读取本机凭证…'}<br>浏览器数据可能被清理，请在「文件」App 另存离线备份。${vaultRows.length?'离线出发前，逐份点开核对。':'导入后即可从当天行程打开原件。'}</div>`;
+  h+=`<div class="segmented" aria-label="凭证范围"><button type="button" data-vault-scope="day" class="${vaultScope==='day'?'on':''}" aria-pressed="${vaultScope==='day'}">D${curDay} 当天</button><button type="button" data-vault-scope="all" class="${vaultScope==='all'?'on':''}" aria-pressed="${vaultScope==='all'}">全程凭证</button></div>`;
+  let group='';
+  for(const slot of shown){
+    const day=slot.days.length?Math.min(...slot.days):null;
+    const nextGroup=day===null?'全程随身':`D${day} · ${STATE.days.find(d=>d.n===day)?.date.slice(5)||''}`;
+    if(vaultScope==='all'&&nextGroup!==group){group=nextGroup;h+=`<h3 class="vault-section">${escRaw(group)}</h3>`;}
+    const files=vaultFiles(slot.id),mark=vaultMarks[slot.id]||'unreviewed';
+    h+=`<article class="card vault-card" id="vault-slot-${slot.id}" data-slot="${slot.id}"><h3>${escRaw(slot.title)}</h3><div class="vault-meta">${slot.kind} · ${files.length?`本机 ${files.length} 份 · ${VAULT_MARKS[mark]||VAULT_MARKS.unreviewed}`:'本机暂无 · 待导入或补齐'}</div>`;
+    if(slot.note)h+=`<p class="${['garni','tre-cime','zorzi-permit'].includes(slot.id)?'vault-note':'vault-meta'}">${escRaw(slot.note)}</p>`;
+    if(files.length)h+=`<ul class="vault-files">${files.map(f=>`<li class="vault-file"><button type="button" class="vault-file-open" data-vault-open="${escAttr(f.id)}"><b>${escRaw(f.label||f.name)}</b><small>${escRaw(f.name.split('.').pop().toUpperCase())} · ${vaultSize(f.size)}${f.mime==='application/vnd.ms-outlook'?' · 下载原邮件':''}</small></button><button type="button" class="vault-remove" data-vault-remove="${escAttr(f.id)}" aria-label="移除 ${escAttr(f.label||f.name)}">移除</button></li>`).join('')}</ul>`;
+    h+=`<button type="button" class="vault-button" data-vault-add="${slot.id}" ${vaultBusy?'disabled':''}>${files.length?'补充 / 更新文件':'添加文件'}</button>`;
+    if(files.length)h+=`<details><summary>核对状态</summary><label>只记录我的核对，不更改预订状态 <select data-vault-mark="${slot.id}" aria-label="${escAttr(slot.title)}核对状态">${Object.entries(VAULT_MARKS).map(([value,label])=>`<option value="${value}" ${value===mark?'selected':''}>${label}</option>`).join('')}</select></label><p class="vault-meta">新文件会排在前面；核对后可移除旧版。资料包重复导入会去重。</p></details>`;
+    h+='</article>';
+  }
+  root.innerHTML=h;
+}
+function openVault(id,day){
+  const slot=vaultSlot(id);
+  if(slot?.days.length&&!slot.days.includes(curDay))day=slot.days[0];
+  const changeVaultDay=currentView==='vault'&&Number.isInteger(day)&&day!==curDay;
+  if(changeVaultDay)rememberScroll();
+  if(Number.isInteger(day)){curDay=day;refreshDayControls();renderItin();renderNav();vaultScope='day';}
+  if(id)vaultScope='all';
+  if(changeVaultDay)setRoute('vault',curDay,false);
+  activateView('vault');renderVault();
+  if(id)requestAnimationFrame(()=>$('vault-slot-'+id)?.scrollIntoView({block:'start'}));
+}
+
+async function vaultDigest(bytes){
+  if(!crypto.subtle)throw new Error('文件校验需要安全网页，请从正式 HTTPS 站点打开。');
+  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),n=>n.toString(16).padStart(2,'0')).join('');
+}
+function vaultMime(name,bytes){
+  const ext=String(name).split('.').pop().toLowerCase();
+  const signature=Array.from(bytes.slice(0,8),n=>n.toString(16).padStart(2,'0')).join('');
+  if(ext==='pdf'&&new TextDecoder().decode(bytes.slice(0,5))==='%PDF-')return 'application/pdf';
+  if(ext==='png'&&signature==='89504e470d0a1a0a')return 'image/png';
+  if(['jpg','jpeg'].includes(ext)&&signature.startsWith('ffd8ff'))return 'image/jpeg';
+  if(ext==='msg'&&signature==='d0cf11e0a1b11ae1')return 'application/vnd.ms-outlook';
+  if(ext==='txt'){
+    try{const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(!text.includes('\0'))return 'text/plain';}catch{}
+  }
+  throw new Error('文件格式不符。支持 PDF、PNG、JPG、UTF-8 TXT 和 MSG 原邮件。');
+}
+function vaultValidName(value,max=240){return typeof value==='string'&&value.length>0&&value.length<=max&&!/[\x00-\x1f\x7f/\\]/.test(value);}
+async function vaultValidatePackage(text){
+  let data;try{data=JSON.parse(text);}catch{throw new Error('资料包无法解析，请重新下载完整文件。');}
+  if(data?.format!=='europe3-private-vault'||data.version!==1||data.trip!=='europe-trip-iii-2026')throw new Error('这不是本次欧洲旅行的凭证资料包。');
+  if(!Array.isArray(data.files)||!data.files.length||data.files.length>VAULT_LIMIT.count)throw new Error('资料包文件数量不符合要求。');
+  let total=0;const ids=new Set(),rows=[];
+  for(const f of data.files){
+    if(!f||typeof f.id!=='string'||!/^[a-z0-9][a-z0-9:._-]{0,119}$/.test(f.id)||ids.has(f.id)||!vaultSlot(f.slot)||!vaultValidName(f.name)||!vaultValidName(f.label,160))throw new Error('资料包的文件目录有误；未导入任何文件。');
+    ids.add(f.id);
+    if(!Number.isSafeInteger(f.size)||f.size<=0||f.size>VAULT_LIMIT.file||(total+=f.size)>VAULT_LIMIT.total)throw new Error('资料包超过大小上限（单份 25 MB，合计 60 MB）。');
+    const padding=f.size%3===0?0:3-f.size%3;
+    if(typeof f.data!=='string'||f.data.length!==4*Math.ceil(f.size/3)||/[^A-Za-z0-9+/=]/.test(f.data)||(padding?f.data.slice(-padding)!=='='.repeat(padding):f.data.includes('='))||f.data.slice(0,padding?-padding:undefined).includes('=')||typeof f.sha256!=='string'||!/^[a-f0-9]{64}$/.test(f.sha256))throw new Error('资料包数据不完整；未导入任何文件。');
+    const bytes=Uint8Array.from(atob(f.data),c=>c.charCodeAt(0));
+    if(bytes.length!==f.size||await vaultDigest(bytes)!==f.sha256)throw new Error('文件校验不通过；请重新下载资料包。原有文件未更改。');
+    const mime=vaultMime(f.name,bytes);if(mime!==f.mime)throw new Error('资料包文件类型不一致；未导入任何文件。');
+    rows.push({id:f.id,slot:f.slot,name:f.name,label:f.label,size:f.size,sha256:f.sha256,mime,blob:new Blob([bytes],{type:mime}),updated:new Date().toISOString()});
+  }
+  const marks={};
+  if(data.marks&&typeof data.marks==='object'&&!Array.isArray(data.marks))for(const [slot,value] of Object.entries(data.marks))if(vaultSlot(slot)&&Object.hasOwn(VAULT_MARKS,value))marks[slot]=value;
+  return {rows,marks};
+}
+async function vaultSave(rows,marks={}){
+  const db=await vaultDatabase();
+  // Read and write within one transaction, so an error or another tab cannot produce a partial import.
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(['files','marks'],'readwrite'),store=tx.objectStore('files'),markStore=tx.objectStore('marks');
+    let count=0,duplicate=0,failure;
+    const request=store.getAll();
+    request.onsuccess=()=>{
+      const existing=new Map(request.result.map(f=>[f.id,f]));
+      const hashes=new Set(request.result.map(f=>`${f.slot}:${f.sha256}`));
+      const changed=new Set();
+      for(const row of rows){
+        if(hashes.has(`${row.slot}:${row.sha256}`)){duplicate++;continue;}
+        const old=existing.get(row.id);if(old)hashes.delete(`${old.slot}:${old.sha256}`);
+        existing.set(row.id,row);hashes.add(`${row.slot}:${row.sha256}`);changed.add(row.slot);store.put(row);count++;
+      }
+      if(existing.size>VAULT_LIMIT.count||Array.from(existing.values()).reduce((n,f)=>n+f.size,0)>VAULT_LIMIT.total){failure=new Error('本机凭证合计超过 150 份或 60 MB，请先备份并移除不需要的旧文件。');tx.abort();return;}
+      // A changed document invalidates an old manual review. Duplicate imports retain that review.
+      for(const [slot,value] of Object.entries(marks)){
+        const check=markStore.get(slot);
+        check.onsuccess=()=>{if(!check.result)markStore.put({slot,value});};
+      }
+      for(const slot of changed)markStore.put({slot,value:'unreviewed'});
+    };
+    tx.oncomplete=()=>resolve({count,duplicate});
+    tx.onabort=tx.onerror=()=>reject(failure||tx.error||new Error('保存失败，未更改原有凭证。'));
+  });
+}
+async function vaultRunImport(file,slot){
+  if(vaultBusy||!file)return;
+  vaultBusy=true;vaultError='';vaultMessage='正在校验文件，完成前请保持页面打开。';renderVault();
+  try{
+    let data;
+    if(slot){
+      if(!vaultSlot(slot)||!vaultValidName(file.name)||!file.size||file.size>VAULT_LIMIT.file)throw new Error('单份文件须为 1 字节至 25 MB，文件名不能包含路径。');
+      const bytes=new Uint8Array(await file.arrayBuffer()),sha256=await vaultDigest(bytes),mime=vaultMime(file.name,bytes);
+      data={rows:[{id:`user:${slot}:${sha256.slice(0,24)}`,slot,name:file.name,label:file.name.slice(0,160),size:file.size,sha256,mime,blob:new Blob([bytes],{type:mime}),updated:new Date().toISOString()}]};
+    }else{
+      if(file.size>VAULT_LIMIT.package||!file.size)throw new Error('请选择完整资料包，文件上限为 85 MB。');
+      data=await vaultValidatePackage(await file.text());
+    }
+    const result=await vaultSave(data.rows,data.marks);
+    const stored=await vaultRead();
+    if(!data.rows.every(row=>stored.files.some(f=>f.slot===row.slot&&f.sha256===row.sha256)))throw new Error('保存后的目录核验失败，请重新打开凭证夹检查。');
+    let persistent=false;try{persistent=await navigator.storage?.persist?.()||false;}catch{}
+    vaultMessage=`已保存 ${result.count} 份，跳过 ${result.duplicate} 份重复文件。${persistent?'浏览器已允许持久保存，仍请保留离线备份。':'请在「文件」App 保留备份，并在出发前打开核对。'}`;
+  }catch(error){vaultError=vaultStorageError(error);}
+  finally{vaultBusy=false;const error=vaultError;await vaultRefresh();if(error){vaultError=error;renderVault();}}
+}
+function vaultChooseFile(slot){
+  const input=document.createElement('input');input.type='file';
+  input.accept=slot?'.pdf,.png,.jpg,.jpeg,.txt,.msg,application/pdf,image/png,image/jpeg,text/plain,application/vnd.ms-outlook':'.json,application/json';
+  input.style.display='none';document.body.appendChild(input);
+  input.addEventListener('change',()=>{const file=input.files?.[0];input.remove();void vaultRunImport(file,slot);},{once:true});
+  input.addEventListener('cancel',()=>input.remove(),{once:true});input.click();
+}
+async function vaultMark(slot,value){
+  if(!vaultSlot(slot)||!Object.hasOwn(VAULT_MARKS,value))return;
+  try{const db=await vaultDatabase();await new Promise((resolve,reject)=>{const tx=db.transaction('marks','readwrite');tx.objectStore('marks').put({slot,value});tx.oncomplete=resolve;tx.onabort=tx.onerror=()=>reject(tx.error);});await vaultRefresh();}
+  catch(error){vaultError=vaultStorageError(error);renderVault();}
+}
+async function vaultRemove(id){
+  const row=vaultRows.find(f=>f.id===id);if(!row||!confirm(`从本机移除「${row.label}」？请先确认「文件」App 中已有备份。`))return;
+  try{
+    const db=await vaultDatabase();await new Promise((resolve,reject)=>{const tx=db.transaction(['files','marks'],'readwrite');tx.objectStore('files').delete(id);tx.objectStore('marks').put({slot:row.slot,value:'unreviewed'});tx.oncomplete=resolve;tx.onabort=tx.onerror=()=>reject(tx.error);});
+    vaultMessage='已从本机移除这份文件。';await vaultRefresh();
+  }catch(error){vaultError=vaultStorageError(error);renderVault();}
+}
+async function vaultExport(){
+  if(vaultBusy)return;vaultBusy=true;renderVault();
+  try{
+    const {files,marks}=await vaultRead();if(!files.length)throw new Error('本机没有可备份的凭证。');
+    const out=[];
+    for(const row of files){
+      const bytes=new Uint8Array(await row.blob.arrayBuffer());let binary='';
+      for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));
+      const {id,slot,name,label,size,mime,sha256}=row;out.push({id,slot,name,label,size,mime,sha256,data:btoa(binary)});
+    }
+    const blob=new Blob([JSON.stringify({format:'europe3-private-vault',version:1,trip:'europe-trip-iii-2026',created:new Date().toISOString(),files:out,marks})],{type:'application/json'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`欧洲旅行凭证_本机备份_${new Date().toISOString().slice(0,10)}.e3vault.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+    vaultMessage='已生成备份文件；请确认已保存到「文件」App。每部手机可分别导入此备份。';
+  }catch(error){vaultError=vaultStorageError(error);}
+  finally{vaultBusy=false;renderVault();}
+}
+
+function vaultCloseViewer(popHistory=true){
+  if(!vaultViewer)return;
+  const {dialog,url,focus}=vaultViewer;vaultViewer=null;dialog.close();dialog.remove();URL.revokeObjectURL(url);
+  document.body.style.overflow='';if(focus?.isConnected)focus.focus();
+  if(popHistory&&history.state?.vaultViewer){vaultViewerPop=true;history.back();}
+}
+async function vaultOpenFile(id){
+  const row=vaultRows.find(f=>f.id===id);if(!row)return;
+  vaultCloseViewer(false);
+  const dialog=document.createElement('dialog');dialog.className='vault-dialog';dialog.setAttribute('aria-labelledby','vault-view-title');
+  const url=URL.createObjectURL(row.blob),focus=document.activeElement;
+  vaultViewer={dialog,url,focus};let zoom=1;
+  dialog.innerHTML=`<div class="vault-view-head"><div class="vault-view-title"><h2 id="vault-view-title">${escRaw(row.label||row.name)}</h2><button type="button" class="vault-button" data-view-close>关闭</button></div><div class="vault-view-actions"><a class="vault-button" href="${url}" target="_blank" rel="noopener">打开原文件 ↗</a><a class="vault-button" href="${url}" download="${escAttr(row.name)}">存到文件</a>${row.mime.startsWith('image/')?'<button type="button" class="vault-button" data-view-zoom>放大图片</button>':''}</div><p class="vault-view-note">${row.mime==='application/pdf'?'PDF 可翻页；若手机预览不完整，请点「打开原文件」。':row.mime==='application/vnd.ms-outlook'?'MSG 原邮件需支持的邮件应用打开；酒店另附可离线阅读的正文。':'本机原件 · 图片可放大查看，文字可上下滚动。'}</p></div><div class="vault-view-body"></div>`;
+  const body=dialog.querySelector('.vault-view-body');
+  if(row.mime==='application/pdf'){const frame=document.createElement('iframe');frame.title='PDF 原件';frame.src=url;body.appendChild(frame);}
+  else if(row.mime.startsWith('image/')){const img=document.createElement('img');img.alt=row.label||row.name;img.src=url;img.style.width='100%';body.appendChild(img);dialog.querySelector('[data-view-zoom]').onclick=event=>{zoom=zoom===1?2:zoom===2?3:1;img.style.width=`${zoom*100}%`;event.currentTarget.textContent=zoom===1?'放大图片':`${zoom} 倍 · 再点切换`;};}
+  else if(row.mime==='text/plain'){const pre=document.createElement('pre');pre.textContent='正在打开…';body.appendChild(pre);row.blob.text().then(text=>{pre.textContent=text;}).catch(()=>{pre.textContent='文件读取失败，请关闭后重试。';});}
+  else{const p=document.createElement('p');p.className='vault-view-placeholder';p.textContent='已保留原始邮件文件。请下载后用邮件应用查看，或关闭此页打开同项下的「确认邮件正文」。';body.appendChild(p);}
+  document.body.appendChild(dialog);document.body.style.overflow='hidden';
+  dialog.querySelector('[data-view-close]').onclick=()=>vaultCloseViewer();dialog.addEventListener('cancel',event=>{event.preventDefault();vaultCloseViewer();});
+  history.pushState({...history.state,vaultViewer:true},'',location.href);dialog.showModal();dialog.querySelector('[data-view-close]').focus();
+}
+window.addEventListener('popstate',()=>{if(vaultViewer&&!history.state?.vaultViewer){vaultViewerPop=true;vaultCloseViewer(false);}});
+function vaultConsumeViewerPop(route){const skip=vaultViewerPop&&route.view==='vault'&&Number(route.day)===curDay;vaultViewerPop=false;return skip;}
+document.addEventListener('change',event=>{const select=event.target.closest('[data-vault-mark]');if(select)void vaultMark(select.dataset.vaultMark,select.value);});
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-vault-slot],[data-vault-day],[data-vault-scope],[data-vault-import],[data-vault-add],[data-vault-open],[data-vault-remove],[data-vault-export]');if(!button)return;
+  if(button.hasAttribute('data-vault-slot'))openVault(button.dataset.vaultSlot);
+  else if(button.hasAttribute('data-vault-day')){openVault(null,button.dataset.vaultDay==='current'?curDay:Number(button.dataset.vaultDay));if(button.dataset.vaultDay==='current'){vaultScope='all';renderVault();}}
+  else if(button.hasAttribute('data-vault-scope')){vaultScope=button.dataset.vaultScope;renderVault();}
+  else if(button.hasAttribute('data-vault-import'))vaultChooseFile();
+  else if(button.hasAttribute('data-vault-add'))vaultChooseFile(button.dataset.vaultAdd);
+  else if(button.hasAttribute('data-vault-open'))void vaultOpenFile(button.dataset.vaultOpen);
+  else if(button.hasAttribute('data-vault-remove'))void vaultRemove(button.dataset.vaultRemove);
+  else if(button.hasAttribute('data-vault-export'))void vaultExport();
+});
 
 init();
 handlePackCloudbaseHandoff().finally(()=>startPackCloudSync());
