@@ -546,6 +546,7 @@ nav{background:rgba(249,249,251,.92);box-shadow:none}nav button{min-height:var(-
 .vault-link,.vault-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border:0;border-radius:10px;background:var(--surface-3);color:var(--action);font:inherit;font-size:13px;font-weight:650;text-decoration:none;cursor:pointer}
 .vault-link{margin:7px 7px 0 0}.vault-button.primary{background:var(--action);color:var(--surface)}.vault-button:disabled{opacity:.5;cursor:wait}
 .vault-hero h2{font-size:28px;margin:0 0 8px}.vault-hero p{font-size:13px;color:var(--sub);line-height:1.65;margin:6px 0 12px}
+.vault-cloud h3{margin:0 0 10px}.vault-cloud label{display:block;font-size:13px;margin:12px 0 8px}.vault-cloud input[type=password]{box-sizing:border-box;width:100%;min-height:46px;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}.vault-cloud label.vault-cloud-remember{display:flex;gap:8px;align-items:center;margin:14px 0;font-size:13px}.vault-cloud-remember input{width:18px;height:18px;flex-shrink:0}.vault-local-tools{margin:15px 0}.vault-local-tools>summary{font-size:13px;color:var(--action);cursor:pointer;padding:8px 0}.vault-cloud .vault-message:empty{display:none}
 .vault-tools{display:flex;gap:8px;flex-wrap:wrap;margin:13px 0}.vault-summary{padding:13px 15px;margin-bottom:16px;border-radius:12px;background:var(--surface-3);font-size:13px;line-height:1.65}
 .vault-message{margin:12px 0;font-size:13px;line-height:1.6;overflow-wrap:anywhere}.vault-message.error{color:var(--warn)}
 .vault-section{margin:22px 0 10px;font-size:15px}.vault-card{scroll-margin-top:145px}.vault-card h3{font-size:16px;overflow-wrap:anywhere}.vault-meta{color:var(--sub);font-size:12px;margin:6px 0}
@@ -1516,7 +1517,7 @@ function init(){
   document.querySelectorAll('[data-close-sheet]').forEach(btn=>btn.onclick=closeDaySheet);
   document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&!$('day-sheet').hidden)closeDaySheet();});
   setRoute(currentView,curDay,true);activateView(currentView,{push:false,top:false});refreshDayControls();
-  void vaultRefresh();
+  void vaultRefresh().then(()=>vaultCloudStart());
   window.addEventListener('popstate',event=>{
     const route=event.state&&event.state.view?event.state:routeFromLocation();
     if(vaultConsumeViewerPop(route))return;
@@ -1890,7 +1891,7 @@ function renderBookings(filter){
     h+='</div></details>';
   }
   $('v-booking').innerHTML=h;
-  $('v-booking').insertAdjacentHTML('afterbegin','<button type="button" class="vault-entry" data-vault-day="current"><span><strong>私人凭证夹</strong><small>导入资料包 · 原件仅存本机</small></span><span aria-hidden="true">›</span></button>');
+  $('v-booking').insertAdjacentHTML('afterbegin','<button type="button" class="vault-entry" data-vault-day="current"><span><strong>私人凭证夹</strong><small>首次解锁后自动下载 · 手机电脑离线可用</small></span><span aria-hidden="true">›</span></button>');
   document.querySelectorAll('#v-booking > .card').forEach(node=>{const title=node.querySelector('h3');if(title)node.insertAdjacentHTML('beforeend',vaultMatchLinks(title.textContent));});
   document.querySelectorAll('#v-booking .filter').forEach(btn=>{btn.onclick=()=>renderBookings(btn.dataset.filter);});
 }
@@ -2125,14 +2126,54 @@ function renderSos(){
   $('v-sos').insertAdjacentHTML('afterbegin',vaultLink('insurance','旅行保险原件')+vaultLink('rental','租车原订单'));
 }
 
-// Files stay in this origin's IndexedDB. The family checklist sync never reads this database.
+/* Native Web Crypto only. Passwords and raw keys never enter cloud requests. */
+const VaultCrypto = (() => {
+  const version=1, iterations=600000, maxBytes=90*1024*1024;
+  const aad=new TextEncoder().encode('EuropeTripIII/private-vault/v1');
+  function encode(bytes){let s='';for(let i=0;i<bytes.length;i+=32768)s+=String.fromCharCode(...bytes.subarray(i,i+32768));return btoa(s);}
+  function decode(value,max){
+    if(typeof value!=='string'||value.length>Math.ceil(max/3)*4||!value.length||value.length%4||!/^[A-Za-z0-9+/]*={0,2}$/.test(value))throw new Error('加密资料格式无效。');
+    const bytes=Uint8Array.from(atob(value),c=>c.charCodeAt(0));if(bytes.length>max)throw new Error('加密资料过大。');return bytes;
+  }
+  function validate(envelope){
+    if(envelope?.format!=='europe-trip-iii-encrypted-vault'||envelope.version!==version||envelope.kdf!=='PBKDF2-SHA-256'||envelope.iterations!==iterations||envelope.cipher!=='AES-256-GCM')throw new Error('不支持此加密资料版本。');
+    const salt=decode(envelope.salt,32),iv=decode(envelope.iv,12),ciphertext=decode(envelope.ciphertext,maxBytes+16);
+    if(salt.length!==32||iv.length!==12||ciphertext.length<17)throw new Error('加密资料不完整。');
+    return {salt,iv,ciphertext};
+  }
+  async function passwordKey(password){
+    if(!crypto?.subtle)throw new Error('请从正式 HTTPS 页面打开凭证夹。');
+    return crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);
+  }
+  async function aesKey(baseKey,salt,usages){
+    return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations,hash:'SHA-256'},baseKey,{name:'AES-GCM',length:256},false,usages);
+  }
+  async function encrypt(bytes,password){
+    if(!bytes.length||bytes.length>maxBytes)throw new Error('资料大小无效。');
+    const baseKey=await passwordKey(password),salt=crypto.getRandomValues(new Uint8Array(32)),iv=crypto.getRandomValues(new Uint8Array(12));
+    const key=await aesKey(baseKey,salt,['encrypt']);
+    const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:aad,tagLength:128},key,bytes);
+    return {envelope:{format:'europe-trip-iii-encrypted-vault',version,kdf:'PBKDF2-SHA-256',iterations,cipher:'AES-256-GCM',salt:encode(salt),iv:encode(iv),ciphertext:encode(new Uint8Array(ciphertext))},baseKey};
+  }
+  async function decrypt(envelope,baseKey){
+    const {salt,iv,ciphertext}=validate(envelope),key=await aesKey(baseKey,salt,['decrypt']);
+    try{return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv,additionalData:aad,tagLength:128},key,ciphertext));}
+    catch{throw new Error('密码不正确，或加密资料已损坏；本机文件保持不变。');}
+  }
+  return Object.freeze({encrypt,decrypt,passwordKey,validate});
+})();
+
+// Encrypted cloud originals download into this origin's IndexedDB after local unlock.
+// Family checklist sync never reads this database, password or key.
 const VAULT_CATALOGUE = [{"id": "flights", "title": "往返航班行程单", "kind": "航班", "days": [0, 1, 16, 17], "match": "LX139|LX1612|LH257|LH796|国际航班|返港航班"}, {"id": "rental", "title": "Goldcar 租车订单", "kind": "租车", "days": [1, 16], "match": "Goldcar|取车|还车"}, {"id": "insurance", "title": "全程旅行保险", "kind": "保险", "days": [], "note": "保险原件可从紧急联系页打开。"}, {"id": "casati", "title": "WorldHotel Casati 18", "kind": "酒店", "days": [1], "match": "Casati"}, {"id": "palace", "title": "Palace Hotel", "kind": "酒店", "days": [2], "match": "Palace", "note": "朋友预订；确认函待补。"}, {"id": "garni", "title": "Garni Gianmartin", "kind": "酒店", "days": [3], "match": "Gianmartin|Garni", "note": "归档原函仍为旧人数；行程已记录 2 成人、2 份早餐更正，需补更正确认。"}, {"id": "belvedere", "title": "Alpenresort Belvedere", "kind": "酒店", "days": [4], "match": "Belvedere"}, {"id": "chalet", "title": "Chalet Milé 2", "kind": "酒店", "days": [5, 6], "match": "Chalet|Milé", "note": "朋友预订；确认函待补。"}, {"id": "zorzi", "title": "Berghotel Zorzi", "kind": "酒店", "days": [7], "match": "Zorzi"}, {"id": "tofana-1", "title": "Hotel Tofana · 第 1 晚", "kind": "酒店", "days": [8], "match": "Tofana"}, {"id": "tofana-2", "title": "Hotel Tofana · 第 2 晚", "kind": "酒店", "days": [9], "match": "Tofana"}, {"id": "astoria-1", "title": "Astoria Bled · 第 1 晚", "kind": "酒店", "days": [10], "match": "Astoria"}, {"id": "astoria-2", "title": "Astoria Bled · 第 2 晚", "kind": "酒店", "days": [11], "match": "Astoria"}, {"id": "mangart", "title": "Hotel Mangart", "kind": "酒店", "days": [12], "match": "Mangart"}, {"id": "bernardin", "title": "Grand Hotel Bernardin", "kind": "酒店", "days": [13], "match": "Bernardin"}, {"id": "cubo", "title": "Hotel CUBO", "kind": "酒店", "days": [14], "match": "CUBO"}, {"id": "piazza", "title": "Hotel Piazza Vecchia", "kind": "酒店", "days": [15], "match": "Piazza"}, {"id": "tre-cime", "title": "三峰停车 · 激活与入场凭证", "kind": "停车", "days": [9], "match": "三峰|Tre Cime|Auronzo", "note": "现有两张图是停车管理记录与付款回执，尚待激活；不能当作正式入场二维码。"}, {"id": "zorzi-permit", "title": "Zorzi 上山通行许可", "kind": "通行", "days": [7], "note": "现有文件仅为办理流程与停车说明；正式许可待补。"}, {"id": "isola-bella", "title": "Isola Bella 门票", "kind": "门票", "days": [1], "match": "Isola Bella|博罗梅奥|贝拉岛"}, {"id": "cruise", "title": "加尔达湖船游", "kind": "体验", "days": [2], "match": "船游|包船|Cruise", "note": "朋友安排；正式确认凭证待补。"}, {"id": "pradel", "title": "Molveno / Pradel 缆车", "kind": "门票", "days": [4], "match": "Pradel|Molveno|莫尔韦诺"}, {"id": "seceda", "title": "Seceda 缆车", "kind": "门票", "days": [6], "match": "Seceda|刀锋"}, {"id": "vintgar", "title": "Vintgar 峡谷门票", "kind": "门票", "days": [11], "match": "Vintgar|文特加"}, {"id": "skocjan", "title": "Škocjan 洞穴门票", "kind": "门票", "days": [13], "match": "Škocjan|Skocjan|什科茨扬"}, {"id": "predjama", "title": "Predjama 城堡门票", "kind": "门票", "days": [15], "match": "Predjama|洞穴城堡"}, {"id": "dars", "title": "DARS 高速电子通行证", "kind": "通行", "days": [10], "match": "DARS|电子通行证|e-vignette"}, {"id": "airport-bus", "title": "去程机场接驳", "kind": "交通", "days": [0], "match": "机场巴士|跨境巴士|接驳"}, {"id": "esplanade", "title": "Esplanade 餐厅", "kind": "餐厅", "days": [2], "match": "Esplanade", "note": "行程已记录预订；确认凭证待补。"}, {"id": "tubladel", "title": "Tubladel 餐厅", "kind": "餐厅", "days": [5], "match": "Tubladel", "note": "行程已记录预订；确认凭证待补。"}, {"id": "tivoli", "title": "Tivoli 餐厅", "kind": "餐厅", "days": [8], "match": "Tivoli", "note": "行程已记录预订；确认凭证待补。"}];
+const VAULT_CLOUD = {"enabled": true, "revision": "c46095d8828216e553236d79f6a0f8bc9a4d02bb2796ff8b4f5619ceb42ba822", "url": "./vault/c46095d8828216e553236d79f6a0f8bc9a4d02bb2796ff8b4f5619ceb42ba822.json", "sha256": "c46095d8828216e553236d79f6a0f8bc9a4d02bb2796ff8b4f5619ceb42ba822", "fileCount": 24};
 const VAULT_DB = 'europe3-vault-v1';
 const VAULT_LIMIT = {file:25*1024*1024,total:60*1024*1024,package:85*1024*1024,count:150};
 const VAULT_MARKS = {unreviewed:'尚未核对',checked:'已由我核对',missing:'仍需补齐',supporting:'仅补充资料'};
 let vaultDBPromise, vaultRows=[], vaultMarks={}, vaultScope='day', vaultLoaded=false;
 let vaultError='', vaultMessage='', vaultBusy=false, vaultReadSequence=0, vaultViewer=null;
 let vaultViewerPop=false;
+let vaultCloudState=null,vaultCloudReady=false,vaultCloudMessage='',vaultCloudError=false;
 
 function vaultSlot(id){return VAULT_CATALOGUE.find(s=>s.id===id);}
 function vaultSize(n){return n===0?'0 KB':n<1024*1024?`${Math.max(1,Math.round(n/1024))} KB`:`${(n/1024/1024).toFixed(1)} MB`;}
@@ -2142,16 +2183,17 @@ function vaultMatchLinks(text,day,kind){
   return VAULT_CATALOGUE.filter(s=>s.match&&(!kind||s.kind===kind)&&(day==null||s.days.includes(day))&&new RegExp(s.match,'i').test(text||''))
     .map(s=>vaultLink(s.id,kind==='酒店'?`入住凭证${s.title.includes('第 ')?' · '+s.title.split(' · ')[1]:''}`:s.kind==='门票'?'门票凭证':`${s.kind}凭证`)).join('');
 }
-function vaultDayEntry(day){return `<button type="button" class="vault-entry" data-vault-day="${day}"><span><strong>当天凭证</strong><small>酒店、交通与门票 · 保存在本机</small></span><span aria-hidden="true">›</span></button>`;}
+function vaultDayEntry(day){return `<button type="button" class="vault-entry" data-vault-day="${day}"><span><strong>当天凭证</strong><small>酒店、交通与门票 · 解锁后自动下载，离线可用</small></span><span aria-hidden="true">›</span></button>`;}
 
 function vaultDatabase(){
   if(!('indexedDB' in window))return Promise.reject(new Error('此浏览器无法保存文件，请使用 Safari 或 Chrome 正常浏览模式。'));
   if(!vaultDBPromise)vaultDBPromise=new Promise((resolve,reject)=>{
-    const request=indexedDB.open(VAULT_DB,1);
+    const request=indexedDB.open(VAULT_DB,2);
     request.onupgradeneeded=()=>{
       const db=request.result;
-      db.createObjectStore('files',{keyPath:'id'});
-      db.createObjectStore('marks',{keyPath:'slot'});
+      if(!db.objectStoreNames.contains('files'))db.createObjectStore('files',{keyPath:'id'});
+      if(!db.objectStoreNames.contains('marks'))db.createObjectStore('marks',{keyPath:'slot'});
+      if(!db.objectStoreNames.contains('cloud'))db.createObjectStore('cloud',{keyPath:'id'});
     };
     request.onsuccess=()=>{const db=request.result;db.onversionchange=()=>{db.close();vaultDBPromise=null;};resolve(db);};
     request.onerror=()=>{vaultDBPromise=null;reject(new Error('本机存储无法打开；请保留资料包后换用正常浏览模式。'));};
@@ -2182,10 +2224,11 @@ function renderVault(){
   const shown=VAULT_CATALOGUE.filter(s=>vaultScope==='all'||s.days.includes(curDay)||s.days.length===0).sort((a,b)=>(a.days.length?Math.min(...a.days):99)-(b.days.length?Math.min(...b.days):99));
   const slotsWithFiles=new Set(vaultRows.map(f=>f.slot));
   const total=vaultRows.reduce((sum,f)=>sum+f.size,0);
-  let h=`<section class="vault-hero"><h2>私人凭证夹</h2><p>从手机「文件」选取资料包，每部手机各导入一次。文件仅存本机，不参与家庭同步。</p></section>`;
-  h+=`<div class="vault-tools"><button type="button" class="vault-button primary" data-vault-import ${vaultBusy?'disabled':''}>${vaultBusy?'正在校验…':'导入资料包'}</button><button type="button" class="vault-button" data-vault-export ${vaultBusy||!vaultRows.length?'disabled':''}>备份本机凭证</button></div>`;
+  let h=`<section class="vault-hero"><h2>私人凭证夹</h2><p>手机、电脑首次解锁后，自动下载云端旅行资料并保留离线副本。手动补充文件与核对状态只存当前设备。</p></section>`;
+  h+=vaultCloudPanel();
+  h+=`<details class="vault-local-tools"><summary>本机导入与备份</summary><div class="vault-tools"><button type="button" class="vault-button" data-vault-import ${vaultBusy?'disabled':''}>${vaultBusy?'正在处理…':'导入资料包'}</button><button type="button" class="vault-button" data-vault-export ${vaultBusy||!vaultRows.length?'disabled':''}>备份本机凭证</button></div></details>`;
   h+=`<div class="vault-message${vaultError?' error':''}" role="status" aria-live="polite">${escRaw(vaultError||vaultMessage)}</div>`;
-  h+=`<div class="vault-summary">${vaultLoaded?`本机已保存 <b>${vaultRows.length}</b> 份文件 · ${slotsWithFiles.size} 项凭证 · ${vaultSize(total)}`:'正在读取本机凭证…'}<br>浏览器数据可能被清理，请在「文件」App 另存离线备份。${vaultRows.length?'离线出发前，逐份点开核对。':'导入后即可从当天行程打开原件。'}</div>`;
+  h+=`<div class="vault-summary">${vaultLoaded?`本机已保存 <b>${vaultRows.length}</b> 份文件 · ${slotsWithFiles.size} 项凭证 · ${vaultSize(total)}`:'正在读取本机凭证…'}<br>浏览器数据可能被清理；重新解锁可下载云端资料，手动补充文件请另存备份。${vaultRows.length?'离线出发前，逐份点开核对。':'解锁后即可从当天行程打开原件。'}</div>`;
   h+=`<div class="segmented" aria-label="凭证范围"><button type="button" data-vault-scope="day" class="${vaultScope==='day'?'on':''}" aria-pressed="${vaultScope==='day'}">D${curDay} 当天</button><button type="button" data-vault-scope="all" class="${vaultScope==='all'?'on':''}" aria-pressed="${vaultScope==='all'}">全程凭证</button></div>`;
   let group='';
   for(const slot of shown){
@@ -2195,9 +2238,9 @@ function renderVault(){
     const files=vaultFiles(slot.id),mark=vaultMarks[slot.id]||'unreviewed';
     h+=`<article class="card vault-card" id="vault-slot-${slot.id}" data-slot="${slot.id}"><h3>${escRaw(slot.title)}</h3><div class="vault-meta">${slot.kind} · ${files.length?`本机 ${files.length} 份 · ${VAULT_MARKS[mark]||VAULT_MARKS.unreviewed}`:'本机暂无 · 待导入或补齐'}</div>`;
     if(slot.note)h+=`<p class="${['garni','tre-cime','zorzi-permit'].includes(slot.id)?'vault-note':'vault-meta'}">${escRaw(slot.note)}</p>`;
-    if(files.length)h+=`<ul class="vault-files">${files.map(f=>`<li class="vault-file"><button type="button" class="vault-file-open" data-vault-open="${escAttr(f.id)}"><b>${escRaw(f.label||f.name)}</b><small>${escRaw(f.name.split('.').pop().toUpperCase())} · ${vaultSize(f.size)}${f.mime==='application/vnd.ms-outlook'?' · 下载原邮件':''}</small></button><button type="button" class="vault-remove" data-vault-remove="${escAttr(f.id)}" aria-label="移除 ${escAttr(f.label||f.name)}">移除</button></li>`).join('')}</ul>`;
+    if(files.length)h+=`<ul class="vault-files">${files.map(f=>`<li class="vault-file"><button type="button" class="vault-file-open" data-vault-open="${escAttr(f.id)}"><b>${escRaw(f.label||f.name)}</b><small>${escRaw(f.name.split('.').pop().toUpperCase())} · ${vaultSize(f.size)}${f.mime==='application/vnd.ms-outlook'?' · 下载原邮件':''}</small></button><button type="button" class="vault-remove" data-vault-remove="${escAttr(f.id)}" aria-label="移除 ${escAttr(f.label||f.name)}" ${vaultBusy?'disabled':''}>移除</button></li>`).join('')}</ul>`;
     h+=`<button type="button" class="vault-button" data-vault-add="${slot.id}" ${vaultBusy?'disabled':''}>${files.length?'补充 / 更新文件':'添加文件'}</button>`;
-    if(files.length)h+=`<details><summary>核对状态</summary><label>只记录我的核对，不更改预订状态 <select data-vault-mark="${slot.id}" aria-label="${escAttr(slot.title)}核对状态">${Object.entries(VAULT_MARKS).map(([value,label])=>`<option value="${value}" ${value===mark?'selected':''}>${label}</option>`).join('')}</select></label><p class="vault-meta">新文件会排在前面；核对后可移除旧版。资料包重复导入会去重。</p></details>`;
+    if(files.length)h+=`<details><summary>核对状态</summary><label>只记录我的核对，不更改预订状态 <select data-vault-mark="${slot.id}" aria-label="${escAttr(slot.title)}核对状态" ${vaultBusy?'disabled':''}>${Object.entries(VAULT_MARKS).map(([value,label])=>`<option value="${value}" ${value===mark?'selected':''}>${label}</option>`).join('')}</select></label><p class="vault-meta">新文件会排在前面；核对后可移除旧版。资料包重复导入会去重。</p></details>`;
     h+='</article>';
   }
   root.innerHTML=h;
@@ -2313,6 +2356,7 @@ async function vaultMark(slot,value){
   catch(error){vaultError=vaultStorageError(error);renderVault();}
 }
 async function vaultRemove(id){
+  if(vaultBusy)return;
   const row=vaultRows.find(f=>f.id===id);if(!row||!confirm(`从本机移除「${row.label}」？请先确认「文件」App 中已有备份。`))return;
   try{
     const db=await vaultDatabase();await new Promise((resolve,reject)=>{const tx=db.transaction(['files','marks'],'readwrite');tx.objectStore('files').delete(id);tx.objectStore('marks').put({slot:row.slot,value:'unreviewed'});tx.oncomplete=resolve;tx.onabort=tx.onerror=()=>reject(tx.error);});
@@ -2372,6 +2416,91 @@ document.addEventListener('click',event=>{
   else if(button.hasAttribute('data-vault-remove'))void vaultRemove(button.dataset.vaultRemove);
   else if(button.hasAttribute('data-vault-export'))void vaultExport();
 });
+
+function vaultCloudPanel(){
+  if(!VAULT_CLOUD.enabled)return '<div class="vault-summary">云端资料正在准备；已有本机文件可继续使用。</div>';
+  const remembered=!!vaultCloudState?.key;
+  let h='<section class="vault-cloud card" aria-label="加密云端资料"><h3>云端旅行资料</h3>';
+  if(!vaultCloudReady)h+='<p class="vault-meta">正在读取此设备的解锁状态…</p>';
+  else if(remembered){
+    h+=`<p class="vault-meta">${vaultCloudState.remembered?'此设备已记住解锁。打开 PWA 时自动检查资料更新。':'本次已解锁；下次同步云端更新需重新输入密码。'}</p><div class="vault-tools"><button type="button" class="vault-button primary" data-vault-cloud-sync ${vaultBusy?'disabled':''}>${vaultBusy?'正在下载并校验…':'立即同步'}</button><button type="button" class="vault-button" data-vault-cloud-forget ${vaultBusy?'disabled':''}>${vaultCloudState.remembered?'取消自动解锁':'结束本次解锁'}</button></div>`;
+  }else{
+    h+=`<p class="vault-meta">${VAULT_CLOUD.fileCount} 份文件已加密保存。请输入凭证夹专用密码；无需分别导入每个文件。</p><form id="vault-cloud-unlock"><label for="vault-cloud-password">凭证夹密码</label><input id="vault-cloud-password" name="vaultPassword" type="password" autocomplete="current-password" required placeholder="输入专用密码" ${vaultBusy?'disabled':''}><label class="vault-cloud-remember"><input name="remember" type="checkbox" checked ${vaultBusy?'disabled':''}>记住此设备，下次自动下载</label><button class="vault-button primary" type="submit" ${vaultBusy?'disabled':''}>${vaultBusy?'正在解锁并校验…':'解锁并下载全部文件'}</button></form>`;
+  }
+  h+=`<p class="vault-message${vaultCloudError?' error':''}" role="status" aria-live="polite">${escRaw(vaultCloudMessage||'密码只用于本机解密，不发送到云端。')}</p></section>`;
+  return h;
+}
+async function vaultCloudRecord(record){
+  const db=await vaultDatabase();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('cloud',record===undefined?'readonly':'readwrite'),store=tx.objectStore('cloud');
+    const request=record===undefined?store.get('session'):record===null?store.delete('session'):store.put({...record,id:'session'});
+    tx.oncomplete=()=>resolve(record===undefined?request.result:null);
+    tx.onabort=tx.onerror=()=>reject(tx.error||new Error('无法保存此设备的解锁状态。'));
+  });
+}
+async function vaultCloudStart(){
+  if(!VAULT_CLOUD.enabled)return;
+  try{
+    vaultCloudState=await vaultCloudRecord()||null;vaultCloudReady=true;
+    if(vaultCloudState?.key){
+      if(vaultCloudState.revision!==VAULT_CLOUD.revision){await vaultCloudSync(vaultCloudState.key,true);return;}
+      vaultCloudMessage=`已下载云端 ${vaultCloudState.fileCount} 份文件，可离线查看。`;
+    }
+  }catch(error){vaultCloudReady=true;vaultCloudError=true;vaultCloudMessage=vaultStorageError(error);}
+  renderVault();
+}
+async function vaultCloudSync(key,remember){
+  if(vaultBusy||!VAULT_CLOUD.enabled)return;
+  vaultBusy=true;vaultCloudError=false;vaultCloudMessage='正在下载加密资料，校验通过后保存到此设备…';renderVault();
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
+  try{
+    const url=new URL(VAULT_CLOUD.url,location.href);
+    if(url.origin!==location.origin)throw new Error('云端资料地址无效。');
+    const response=await fetch(url.href,{credentials:'omit',referrerPolicy:'no-referrer',signal:controller.signal});
+    if(!response.ok)throw new Error('云端资料暂时不可用，请稍后重试；已有本机文件可继续查看。');
+    const length=Number(response.headers.get('Content-Length')||0);
+    if(length>120*1024*1024)throw new Error('云端资料大小异常，未改动本机文件。');
+    const encrypted=new Uint8Array(await response.arrayBuffer());
+    if(encrypted.length>120*1024*1024||await vaultDigest(encrypted)!==VAULT_CLOUD.sha256)throw new Error('云端资料校验不通过，未改动本机文件。');
+    const envelope=JSON.parse(new TextDecoder().decode(encrypted));
+    const plaintext=await VaultCrypto.decrypt(envelope,key);
+    const data=await vaultValidatePackage(new TextDecoder('utf-8',{fatal:true}).decode(plaintext));
+    if(data.rows.length!==VAULT_CLOUD.fileCount)throw new Error('云端文件数量不符，未改动本机文件。');
+    await vaultSave(data.rows,data.marks);
+    const stored=await vaultRead();
+    if(!data.rows.every(row=>stored.files.some(f=>f.slot===row.slot&&f.sha256===row.sha256)))throw new Error('下载后的文件目录校验失败，请重试。');
+    const next={key,remembered:remember,revision:VAULT_CLOUD.revision,fileCount:data.rows.length,updated:new Date().toISOString()};
+    vaultCloudState=next;
+    vaultCloudMessage=`云端 ${data.rows.length} 份文件已保存并逐份校验，现在可离线查看。${remember?'此设备已记住解锁，下次自动检查更新。':'本次解锁未记住；下次云端更新需重新输入密码。'}`;
+    try{if(remember)await vaultCloudRecord(next);else await vaultCloudRecord(null);}
+    catch{next.remembered=false;vaultCloudMessage=`云端 ${data.rows.length} 份文件已保存并逐份校验，可离线查看。但浏览器未能保存解锁状态，下次同步需重新输入密码。`;}
+    try{await navigator.storage?.persist?.();}catch{}
+  }catch(error){
+    vaultCloudError=true;
+    vaultCloudMessage=error.name==='AbortError'?'下载超时；已有本机文件保留，请联网后重试。':!navigator.onLine?'当前离线；已下载的文件可继续查看，联网后再同步。':vaultStorageError(error);
+  }finally{clearTimeout(timer);vaultBusy=false;await vaultRefresh();}
+}
+async function vaultCloudUnlock(form){
+  if(vaultBusy)return;
+  const input=form.elements.vaultPassword,remember=form.elements.remember.checked;
+  let password=input.value;input.value='';
+  try{const key=await VaultCrypto.passwordKey(password);password='';await vaultCloudSync(key,remember);}
+  catch(error){password='';vaultCloudError=true;vaultCloudMessage=vaultStorageError(error);renderVault();}
+}
+async function vaultCloudForget(){
+  if(vaultBusy)return;
+  if(!confirm('取消此设备的自动解锁？已下载的本机文件仍然保留，可继续离线查看。'))return;
+  try{await vaultCloudRecord(null);vaultCloudState=null;vaultCloudError=false;vaultCloudMessage='已取消自动解锁。已有本机文件保留；再次同步时需输入密码。';}
+  catch(error){vaultCloudError=true;vaultCloudMessage=vaultStorageError(error);}
+  renderVault();
+}
+document.addEventListener('submit',event=>{if(event.target.id==='vault-cloud-unlock'){event.preventDefault();void vaultCloudUnlock(event.target);}});
+document.addEventListener('click',event=>{
+  if(event.target.closest('[data-vault-cloud-sync]')&&vaultCloudState?.key)void vaultCloudSync(vaultCloudState.key,!!vaultCloudState.remembered);
+  if(event.target.closest('[data-vault-cloud-forget]'))void vaultCloudForget();
+});
+window.addEventListener('online',()=>{if(vaultCloudState?.key&&vaultCloudState.revision!==VAULT_CLOUD.revision)void vaultCloudSync(vaultCloudState.key,!!vaultCloudState.remembered);});
 
 init();
 handlePackCloudbaseHandoff().finally(()=>startPackCloudSync());
