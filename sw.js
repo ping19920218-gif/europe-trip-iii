@@ -1,4 +1,4 @@
-const CACHE = 'europe-trip-iii-pwa-v60-20260928-0815-bus';
+const CACHE = 'europe-trip-iii-pwa-v61-20260928-afternoon';
 const ASSETS = ['./', './index.html', './cloudbase-bridge.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const APP_SHELL = new URL('./index.html', self.registration.scope).href;
 const SCOPE_ROOT = self.registration.scope;
