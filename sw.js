@@ -1,5 +1,5 @@
-const CACHE = 'europe-trip-iii-pwa-v61-20260928-afternoon';
-const ASSETS = ['./', './index.html', './cloudbase-bridge.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+const CACHE = 'europe-trip-iii-pwa-v62-20260929-loop';
+const ASSETS = ['./', './index.html', './cloudbase-bridge.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './seceda-loop-v62.png'];
 const APP_SHELL = new URL('./index.html', self.registration.scope).href;
 const SCOPE_ROOT = self.registration.scope;
 self.addEventListener('install', e => {
@@ -12,7 +12,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  const isHTML = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+  const isRouteMap = new URL(req.url).pathname.endsWith('/seceda-loop-v62.png');
+  const isHTML = !isRouteMap && (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html'));
   const isAppShell = req.url === APP_SHELL || req.url === SCOPE_ROOT;
   if (isHTML) {
     // HTML 走 network-first：在线永远拿最新(含内嵌行程数据)，离线回退缓存
